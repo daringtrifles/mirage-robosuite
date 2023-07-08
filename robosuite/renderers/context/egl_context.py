@@ -145,9 +145,13 @@ class EGLGLContext:
         """Frees resources associated with this context."""
         if self._context:
             current_context = EGL.eglGetCurrentContext()
-            if current_context and self._context.address == current_context.address:
-                EGL.eglMakeCurrent(EGL_DISPLAY, EGL.EGL_NO_SURFACE, EGL.EGL_NO_SURFACE, EGL.EGL_NO_CONTEXT)
-            EGL.eglDestroyContext(EGL_DISPLAY, self._context)
+            try:
+                if current_context and self._context.address == current_context.address:
+                    EGL.eglMakeCurrent(EGL_DISPLAY, EGL.EGL_NO_SURFACE, EGL.EGL_NO_SURFACE, EGL.EGL_NO_CONTEXT)
+                EGL.eglDestroyContext(EGL_DISPLAY, self._context)
+            except:
+                print("egl closing exception encoutered ...")
+                pass
             EGL.eglReleaseThread()
         self._context = None
 
