@@ -115,3 +115,10 @@ mjkey.txt
 
 # private macros
 macros_private.py
+
+# data folders
+collected_data
+robosuite/demos/
+*.png
+# videos
+*.mp4
