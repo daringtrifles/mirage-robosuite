@@ -363,7 +363,6 @@ class RobotEnv(MujocoEnv):
                     sensor=s,
                     sampling_rate=self.control_freq,
                 )
-
         return observables
 
     def _create_camera_sensors(self, cam_name, cam_w, cam_h, cam_d, cam_segs, modality="image"):
@@ -468,11 +467,32 @@ class RobotEnv(MujocoEnv):
         # Make sure we get correct convention
         convention = IMAGE_CONVENTION_MAPPING[macros.IMAGE_CONVENTION]
 
+        
+
         if cam_s == "instance":
             name2id = {inst: i for i, inst in enumerate(list(self.model.instances_to_ids.keys()))}
             mapping = {idn: name2id[inst] for idn, inst in self.model.geom_ids_to_instances.items()}
         elif cam_s == "class":
             name2id = {cls: i for i, cls in enumerate(list(self.model.classes_to_ids.keys()))}
+            mapping = {idn: name2id[cls] for idn, cls in self.model.geom_ids_to_classes.items()}
+        elif cam_s == "robot_only":
+            from robosuite import ALL_GRIPPERS
+            ALL_ROBOTS = {
+                    "Sawyer",
+                    "Panda",
+                    "Jaco",
+                    "Kinova3",
+                    "IIWA",
+                    "UR5e",
+                }
+            # breakpoint()
+            name2id = {cls: i for i, cls in enumerate(list(self.model.classes_to_ids.keys()))}
+            robots_grippers_class_ids = []
+            for name in name2id:
+                if name in ALL_ROBOTS or name in ALL_GRIPPERS:
+                    name2id[name] = 1
+                else:
+                    name2id[name] = 0
             mapping = {idn: name2id[cls] for idn, cls in self.model.geom_ids_to_classes.items()}
         else:  # element
             # No additional mapping needed
@@ -491,10 +511,13 @@ class RobotEnv(MujocoEnv):
             # Map raw IDs to grouped IDs if we're using instance or class-level segmentation
             if mapping is not None:
                 seg = (
-                    np.fromiter(map(lambda x: mapping.get(x, -1), seg.flatten()), dtype=np.int32).reshape(
+                    np.fromiter(map(lambda x: mapping.get(x, 0), seg.flatten()), dtype=np.int32).reshape(
                         cam_h, cam_w, 1
                     )
-                    + 1
+                    # np.fromiter(map(lambda x: mapping.get(x, -1), seg.flatten()), dtype=np.int32).reshape(
+                    #     cam_h, cam_w, 1
+                    # )
+                    # + 1
                 )
             return seg
 

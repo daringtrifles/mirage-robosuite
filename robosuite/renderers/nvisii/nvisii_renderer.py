@@ -15,6 +15,15 @@ from robosuite.utils import transform_utils as T
 from robosuite.utils.mjcf_utils import xml_path_completion
 from robosuite.utils.transform_utils import mat2quat
 from robosuite.wrappers import Wrapper
+from robosuite import ALL_GRIPPERS
+ALL_ROBOTS = {
+        "Sawyer",
+        "Panda",
+        "Jaco",
+        "Kinova3",
+        "IIWA",
+        "UR5e",
+    }
 
 np.set_printoptions(threshold=np.inf)
 
@@ -399,7 +408,7 @@ class NVISIIRenderer(Renderer):
         else:
             img_file = f"{self.img_path}/image_{self.img_cntr}.{render_type}"
             if self.segmentation_type[0] != None:
-                self.render_segmentation_data(img_file)
+                seg_array = self.render_segmentation_data(img_file)
             elif self.vision_modalities is None:
                 self.render_to_file(img_file)
             else:
@@ -412,7 +421,6 @@ class NVISIIRenderer(Renderer):
         nvisii.render_to_file(width=self.width, height=self.height, samples_per_pixel=self.spp, file_path=img_file)
 
     def render_segmentation_data(self, img_file):
-
         segmentation_array = nvisii.render_data(
             width=int(self.width),
             height=int(self.height),
@@ -422,6 +430,17 @@ class NVISIIRenderer(Renderer):
             options="entity_id",
             seed=1,
         )
+        # the first time nvisii.render_data is called, it returns an array of all 0's
+        if self.img_cntr == 0:
+            segmentation_array = nvisii.render_data(
+                width=int(self.width),
+                height=int(self.height),
+                start_frame=0,
+                frame_count=1,
+                bounce=int(0),
+                options="entity_id",
+                seed=1,
+            )
         segmentation_array = np.array(segmentation_array).reshape(self.height, self.width, 4)[:, :, 0]
         segmentation_array[segmentation_array > 3.4028234663852886e37] = 0
         segmentation_array[segmentation_array < 3.4028234663852886e-37] = 0
@@ -433,10 +452,87 @@ class NVISIIRenderer(Renderer):
 
         rgb_img = Image.fromarray(rgb_data)
         rgb_img.save(img_file)
+        return rgb_data
 
+    def render_depth_data(self, img_file):
+        depth_data = nvisii.render_data(
+            width=self.width,
+            height=self.height,
+            start_frame=0,
+            frame_count=1,
+            bounce=int(0),
+            options="depth",
+        )
+        # the first time nvisii.render_data is called, it returns an array of all 0's
+        if self.img_cntr == 0:
+            depth_data = nvisii.render_data(
+                width=self.width,
+                height=self.height,
+                start_frame=0,
+                frame_count=1,
+                bounce=int(0),
+                options="depth",
+            )
+
+        depth_data = np.array(depth_data).reshape(self.height, self.width, 4)
+        depth_data = np.flipud(depth_data)[:, :, [0, 1, 2]]
+        raw_depth_data = depth_data[:, :, 0].copy()
+
+        # normalize depths
+        depth_data[:, :, 0] = (depth_data[:, :, 0] - np.min(depth_data[:, :, 0])) / (
+            np.max(depth_data[:, :, 0]) - np.min(depth_data[:, :, 0])
+        )
+        depth_data[:, :, 1] = (depth_data[:, :, 1] - np.min(depth_data[:, :, 1])) / (
+            np.max(depth_data[:, :, 1]) - np.min(depth_data[:, :, 1])
+        )
+        depth_data[:, :, 2] = (depth_data[:, :, 2] - np.min(depth_data[:, :, 2])) / (
+            np.max(depth_data[:, :, 2]) - np.min(depth_data[:, :, 2])
+        )
+
+        from PIL import Image
+
+        depth_image = Image.fromarray(((1 - depth_data) * 255).astype(np.uint8))
+        depth_image.save(img_file)
+        return raw_depth_data
+
+    def render_normal_data(self, img_file):
+
+        normal_data = nvisii.render_data(
+            width=self.width,
+            height=self.height,
+            start_frame=0,
+            frame_count=1,
+            bounce=int(0),
+            options="screen_space_normal",
+        )
+        # the first time nvisii.render_data is called, it returns an array of all 0's
+        if self.img_cntr == 0:
+            normal_data = nvisii.render_data(
+                width=self.width,
+                height=self.height,
+                start_frame=0,
+                frame_count=1,
+                bounce=int(0),
+                options="screen_space_normal",
+            )
+        normal_data = np.array(normal_data).reshape(self.height, self.width, 4)
+        normal_data = np.flipud(normal_data)[:, :, [0, 1, 2]]
+        raw_normal_data = normal_data.copy()
+        
+        normal_data[:, :, 0] = (normal_data[:, :, 0] + 1) / 2 * 255  # R
+        normal_data[:, :, 1] = (normal_data[:, :, 1] + 1) / 2 * 255  # G
+        normal_data[:, :, 2] = 255 - ((normal_data[:, :, 2] + 1) / 2 * 255)  # B
+
+        from PIL import Image
+
+        normal_image = Image.fromarray((normal_data).astype(np.uint8))
+        normal_image.save(img_file)
+        return raw_normal_data
+
+        
     def render_data_to_file(self, img_file):
 
-        if self.vision_modalities == "depth" and self.img_cntr != 1:
+        if self.vision_modalities == "depth" and self.img_cntr != 0:
 
             depth_data = nvisii.render_data(
                 width=self.width,
@@ -444,11 +540,22 @@ class NVISIIRenderer(Renderer):
                 start_frame=0,
                 frame_count=1,
                 bounce=int(0),
-                options=self.vision_modalities,
+                options="depth",
             )
+            # the first time nvisii.render_data is called, it returns an array of all 0's
+            if self.img_cntr == 0:
+                depth_data = nvisii.render_data(
+                    width=self.width,
+                    height=self.height,
+                    start_frame=0,
+                    frame_count=1,
+                    bounce=int(0),
+                    options="depth",
+                )
 
             depth_data = np.array(depth_data).reshape(self.height, self.width, 4)
             depth_data = np.flipud(depth_data)[:, :, [0, 1, 2]]
+            raw_depth_data = depth_data[:, :, 0].copy()
 
             # normalize depths
             depth_data[:, :, 0] = (depth_data[:, :, 0] - np.min(depth_data[:, :, 0])) / (
@@ -465,8 +572,9 @@ class NVISIIRenderer(Renderer):
 
             depth_image = Image.fromarray(((1 - depth_data) * 255).astype(np.uint8))
             depth_image.save(img_file)
+            return raw_depth_data
 
-        elif self.vision_modalities == "normal" and self.img_cntr != 1:
+        elif self.vision_modalities == "normal" and self.img_cntr != 0:
 
             normal_data = nvisii.render_data(
                 width=self.width,
@@ -476,10 +584,20 @@ class NVISIIRenderer(Renderer):
                 bounce=int(0),
                 options="screen_space_normal",
             )
-
+            # the first time nvisii.render_data is called, it returns an array of all 0's
+            if self.img_cntr == 0:
+                normal_data = nvisii.render_data(
+                    width=self.width,
+                    height=self.height,
+                    start_frame=0,
+                    frame_count=1,
+                    bounce=int(0),
+                    options="screen_space_normal",
+                )
             normal_data = np.array(normal_data).reshape(self.height, self.width, 4)
             normal_data = np.flipud(normal_data)[:, :, [0, 1, 2]]
-
+            raw_normal_data = normal_data.copy()
+            
             normal_data[:, :, 0] = (normal_data[:, :, 0] + 1) / 2 * 255  # R
             normal_data[:, :, 1] = (normal_data[:, :, 1] + 1) / 2 * 255  # G
             normal_data[:, :, 2] = 255 - ((normal_data[:, :, 2] + 1) / 2 * 255)  # B
@@ -488,6 +606,7 @@ class NVISIIRenderer(Renderer):
 
             normal_image = Image.fromarray((normal_data).astype(np.uint8))
             normal_image.save(img_file)
+            return raw_normal_data
 
         else:
 
@@ -550,9 +669,26 @@ class NVISIIRenderer(Renderer):
                             seg_im[i][j] = self.parser.entity_id_class_mapping[seg_im[i][j]]
                         else:
                             seg_im[i][j] = max_r - 1
-
-            color_list = np.array([cmap(i / (max_r)) for i in range(max_r)])
-
+            elif self.segmentation_type[0][0] == "robot_only":
+                cmap = cm.get_cmap("binary")
+                max_r = 2
+                robots_grippers_class_ids = []
+                for robot in ALL_ROBOTS:
+                    if robot in self.parser.class2index:
+                        robots_grippers_class_ids.append(self.parser.class2index[robot])
+                for gripper in ALL_GRIPPERS:
+                    if gripper in self.parser.class2index and gripper is not None:
+                        robots_grippers_class_ids.append(self.parser.class2index[gripper])
+                for i in range(len(seg_im)):
+                    for j in range(len(seg_im[0])):
+                        if seg_im[i][j] in self.parser.entity_id_class_mapping:
+                            if self.parser.entity_id_class_mapping[seg_im[i][j]] in robots_grippers_class_ids:
+                                seg_im[i][j] = 0
+                            else:
+                                seg_im[i][j] = 1
+                        else:
+                            seg_im[i][j] = 1
+            color_list = np.array([cmap(i / (max_r-1)) for i in range(max_r)])
             return (color_list[seg_im] * 255).astype(np.uint8)
 
     def reset(self):

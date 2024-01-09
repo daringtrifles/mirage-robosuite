@@ -87,7 +87,7 @@ if __name__ == "__main__":
         control_freq=20,
         renderer="nvisii",
         renderer_config=config,
-        camera_segmentations="element" if config["vision_modalities"] == "segmentation" else None,
+        camera_segmentations="robot_only" if config["vision_modalities"] == "segmentation" else None,
     )
 
     env.reset()

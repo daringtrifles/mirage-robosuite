@@ -192,7 +192,7 @@ class Parser(BaseParser):
 
         if self.segmentation_type[0] == None or self.segmentation_type[0][0] == "element":
             class_id = element_id
-        elif self.segmentation_type[0][0] == "class":
+        elif self.segmentation_type[0][0] == "class" or self.segmentation_type[0][0] == "robot_only":
             class_id = self.class2index[self.env.model._geom_ids_to_classes.get(geom_index)]
         elif self.segmentation_type[0][0] == "instance":
             class_id = self.instance2index[self.env.model._geom_ids_to_instances.get(geom_index)]

@@ -102,6 +102,7 @@ import robosuite as suite
 from robosuite import load_controller_config
 from robosuite.utils.input_utils import input2action
 from robosuite.wrappers import VisualizationWrapper
+import robosuite.utils.transform_utils as T
 
 if __name__ == "__main__":
 
@@ -238,4 +239,10 @@ if __name__ == "__main__":
 
             # Step through the simulation and render
             obs, reward, done, info = env.step(action)
+            
+            eef_site_name = env.robots[0].controller.eef_name
+            curr_pos = np.array(env.sim.data.site_xpos[env.sim.model.site_name2id(eef_site_name)])
+            curr_rot = np.array(env.sim.data.site_xmat[env.sim.model.site_name2id(eef_site_name)].reshape([3, 3]))
+            print("Current position: {}".format(curr_pos))
+            print("Current rotation: {}".format(curr_rot))
             env.render()

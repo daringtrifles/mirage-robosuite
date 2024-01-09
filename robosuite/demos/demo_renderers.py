@@ -5,10 +5,12 @@ import numpy as np
 
 import robosuite as suite
 import robosuite.utils.transform_utils as T
+import robosuite.utils.camera_utils as camera_utils
 from robosuite.controllers import load_controller_config
 from robosuite.renderers import load_renderer_config
 from robosuite.utils.input_utils import *
-
+import robosuite.macros as macros
+macros.IMAGE_CONVENTION = "opencv"
 
 def str2bool(v):
     if v.lower() in ("yes", "true", "t", "y", "1"):
@@ -74,11 +76,14 @@ if __name__ == "__main__":
     env = suite.make(
         **options,
         has_renderer=False if renderer != "mujoco" else True,  # no on-screen renderer
-        has_offscreen_renderer=False,  # no off-screen renderer
+        has_offscreen_renderer=True,  # no off-screen renderer
         ignore_done=True,
-        use_camera_obs=False,  # no camera observations
+        use_camera_obs=True,  # no camera observations
         control_freq=20,
         renderer=renderer,
+        camera_names = ["frontview", "sideview"],
+        camera_depths = True,
+        camera_segmentations = "robot_only",
     )
 
     env.reset()
@@ -101,7 +106,16 @@ if __name__ == "__main__":
         for i in range(10000):
             action = np.random.uniform(low, high)
             obs, reward, done, _ = env.step(action)
-            env.render()
+            # env.render()
+            breakpoint()
+            import matplotlib.pyplot as plt
+            # plt.imshow(obs['frontview_image']); plt.show()
+            # plt.imshow(obs['frontview_depth']); plt.show() # (256, 256, 1)
+            depth_map = obs['frontview_depth']
+            # plt.imshow(obs['frontview_segmentation_robot_only']); plt.show() # (256, 256, 1)
+            real_depth_map = camera_utils.get_real_depth_map(env.sim, depth_map)
+            val = env.sim.render(height=512, width=512, camera_name="sideview")
+            plt.imshow(val); plt.show()
 
     env.close_renderer()
     print("Done.")
