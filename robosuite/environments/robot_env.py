@@ -489,6 +489,7 @@ class RobotEnv(MujocoEnv):
             name2id = {cls: i for i, cls in enumerate(list(self.model.classes_to_ids.keys()))}
             robots_grippers_class_ids = []
             for name in name2id:
+                # if name in ALL_ROBOTS:
                 if name in ALL_ROBOTS or name in ALL_GRIPPERS:
                     name2id[name] = 1
                 else:

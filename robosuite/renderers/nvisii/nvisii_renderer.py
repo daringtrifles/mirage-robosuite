@@ -676,9 +676,9 @@ class NVISIIRenderer(Renderer):
                 for robot in ALL_ROBOTS:
                     if robot in self.parser.class2index:
                         robots_grippers_class_ids.append(self.parser.class2index[robot])
-                for gripper in ALL_GRIPPERS:
-                    if gripper in self.parser.class2index and gripper is not None:
-                        robots_grippers_class_ids.append(self.parser.class2index[gripper])
+                # for gripper in ALL_GRIPPERS:
+                #     if gripper in self.parser.class2index and gripper is not None:
+                #         robots_grippers_class_ids.append(self.parser.class2index[gripper])
                 for i in range(len(seg_im)):
                     for j in range(len(seg_im[0])):
                         if seg_im[i][j] in self.parser.entity_id_class_mapping:
